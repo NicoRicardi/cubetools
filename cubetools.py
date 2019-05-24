@@ -11,7 +11,7 @@ import re,sys
 
 # TODO: catch if mendeleev is installed and write minimal implementation of mendeleev
 
-class cubefile:
+class CubeFile:
     def __init__(self, geom, Np_vect, Vect_M, values, origin=np.zeros(3), comment="\n \n"):
         self.geom=geom
         self.Np_vect=Np_vect
@@ -172,7 +172,7 @@ def read_cubefile(fname):
         ycnt += 1
     cubelist[-1] = np.asarray(cubelist[-1])
     cubearray    = np.asarray(cubelist)
-    return cubefile(g, Np_vect, Vect_M, cubearray, origin=o, comment=cmmnt)
+    return CubeFile(g, Np_vect, Vect_M, cubearray, origin=o, comment=cmmnt)
 
 def check_same_grid(cf1, cf2, orig_thresh=1e-5):
     if not (cf1.Np_vect == cf2.Np_vect).all():
@@ -212,12 +212,12 @@ def subtract(cf1, cf2, comment="subtracted with cubetools\n here it goes\n",
             Np_vect = cf1.Np_vect
             Vect_M  = cf1.Vect_M
             origin  = cf1.origin
-            return cubefile(geom, Np_vect, Vect_M, np.zeros(cf1.values.shape),
+            return CubeFile(geom, Np_vect, Vect_M, np.zeros(cf1.values.shape),
                     origin, comment=comment)
         else:
             print("Not the same grid! Exiting!")
             sys.exit()
-    return cubefile(geom, Np_vect, Vect_M, np.subtract(cf1.values,cf2.values),
+    return CubeFile(geom, Np_vect, Vect_M, np.subtract(cf1.values,cf2.values),
             origin, comment=comment)
 
 def add(cf1, cf2, comment="subtracted with cubetools\n here it goes\n",
@@ -242,12 +242,12 @@ def add(cf1, cf2, comment="subtracted with cubetools\n here it goes\n",
             Np_vect = cf1.Np_vect
             Vect_M  = cf1.Vect_M
             origin  = cf1.origin
-            return cubefile(geom, Np_vect, Vect_M, np.zeros(cf1.values.shape),
+            return CubeFile(geom, Np_vect, Vect_M, np.zeros(cf1.values.shape),
                     origin, comment=comment)
         else:
             print("Not the same grid! Exiting!")
             sys.exit()
-    return cubefile(geom, Np_vect, Vect_M, np.add(cf1.values, cf2.values),
+    return CubeFile(geom, Np_vect, Vect_M, np.add(cf1.values, cf2.values),
             origin, comment=comment)
 
 def RSR(cf1, cf2, Continue=False):
