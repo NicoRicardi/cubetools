@@ -5,7 +5,7 @@ Created on Tue Apr  2 12:29:10 2019
 
 @author: nico
 """
-from geomtools import geom
+from geomtools.geom import geom
 import numpy as np
 import re
 
@@ -157,7 +157,7 @@ class cubefile:
         mol = gto.M(atom = geomstring, basis = ibasis)
         dm_obj = dmt.DM.from_dmfile(dmfile)
         dm = dm_obj.get_dm_full()
-        self.g.change_coord_unit("au")
+        self.geom.change_coord_unit("au")
         points = self.get_coordlist()
         ao_mol = eval_ao(mol, points, deriv=0)
         cubevals= eval_rho(mol, ao_mol, dm, xctype='LDA')
@@ -192,7 +192,6 @@ class cubefile:
             for i in range(3):
                 out.write("{:5}{:12.6f}{:12.6f}{:12.6f}\n".format(self.Np_vect[i],self.Vect_M[i][0],self.Vect_M[i][1],self.Vect_M[i][2]))
             for i in range(len(self.geom.atoms)):
-#                out.write(self.geom.atoms[i]+' {:{w}.{p}f} {:{w}.{p}f} {:{w}.{p}f}'.format(g.coords(which)[i][0],g.coords(which)[i][1],g.coords(which)[i][2],w=spacing+decs+1, p=decs)+"\n")
                 out.write('{:5}{:12.6f}{:12.6f}{:12.6f}{:12.6f}\n'.format(md.element(self.geom.atoms[i]).atomic_number,md.element(self.geom.atoms[i]).atomic_number,self.geom.coords[i][0],
                           self.geom.coords[i][1],self.geom.coords[i][2]))
             for x in range(self.Np_vect[0]):
@@ -515,7 +514,7 @@ def read_cubefile(fname, empty_values = False):
     Vect_M = np.asarray(V_m)
     coords = np.asarray(positions)
     atoms = np.asarray(atms)
-    g = geom.geom(atoms,coords, coord_unit="au")
+    g = geom(atoms,coords, coord_unit="au")
     if not empty_values:
         with open(fname) as f:
             cube = f.read()
@@ -540,7 +539,7 @@ def read_cubefile(fname, empty_values = False):
         cubearray = np.zeros(list(Np_vect))
     return cubefile(g,Np_vect,Vect_M,cubearray,origin=o,comment=cmmnt)
 
-def get_emptyval_cube(g = None, Np_vect = None, Vect_M = None,  o = None, comment = "Empty function values\nOnly grid\n"):
+def get_emptyval_cube(g = "", Np_vect = np.array([]), Vect_M = np.array([]),  o = np.array([]), comment = "Empty function values\nOnly grid\n"):
     """
     Note
     ----
@@ -559,17 +558,18 @@ def get_emptyval_cube(g = None, Np_vect = None, Vect_M = None,  o = None, commen
     comment: str
         comment, default specifies it is empty
     """
-    if Np_vect == None:
+    if Np_vect == np.array([]):
         raise gridError("You must specify Np_vect")
-    if Vect_M == None:
+    if Vect_M == np.array([]):
         raise gridError("You must specify Vect_M")
-    if o == None:
+    if o == np.array([]):
         raise gridError("You must specify the origin")
-    if g == None:
-        raise Error("You must specify the geometry. Either geom object of .xyz filename")
-    elif type(g) == str:
-        g = geom.geom.from_xzy(g)
-    elif type(g) != geom.geom: #TODO check type for geom obj
+    if type(g) == str:
+        if g == "":
+            raise Error("You must specify the geometry. Either geom object of .xyz filename")
+        else:
+            g = geom.from_xzy(g)
+    elif type(g) != geom: 
         raise TypeError("the geometry is neither a geometry object nor a file!")
     values = np.zeros(list(Np_vect))
     g.change_coord_unit("au")
