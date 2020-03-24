@@ -568,14 +568,14 @@ def get_emptyval_cube(g = "", Np_vect = np.array([]), Vect_M = np.array([]),  o 
         if g == "":
             raise Error("You must specify the geometry. Either geom object of .xyz filename")
         else:
-            g = geom.from_xzy(g)
+            g = geom.from_xyz(g)
     elif type(g) != geom: 
         raise TypeError("the geometry is neither a geometry object nor a file!")
     values = np.zeros(list(Np_vect))
     g.change_coord_unit("au")
     return cubefile(g, Np_vect, Vect_M, values,o, comment = comment)
     
-def get_cube_from_dm(dmfile = "", basfile = "", g = None, Np_vect = None, Vect_M = None,  o = None):
+def get_cube_from_dm(dmfile = "", basfile = "", g = None, Np_vect = np.array([]), Vect_M = np.array([]),  o = np.array([])):
     """
     Parameters
     ----------
