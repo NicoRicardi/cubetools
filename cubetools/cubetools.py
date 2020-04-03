@@ -112,7 +112,7 @@ class cubefile:
         cubefile obj
             Cubefile with desired grid but empty value array
         """
-        return get_emptyval_cube(g = g, Np_vect = Np_vect, Vect_M = Vect_M,  o = o, comment = comment)
+        return emptyval_cube_from_specs(g = g, Np_vect = Np_vect, Vect_M = Vect_M,  o = o, comment = comment)
     
     def get_cubevals_from_dm(self, dmfile = "", basfile = "", g = "", comment = "Obtained from density matrix in file: \n {dmfile} \n"):
         """
@@ -122,10 +122,10 @@ class cubefile:
         
         Parameters
         ----------
-        dmfile: str
-            density matrix file
+        dmfile: str or list
+            density matrix file, list or "file1,file2"
         basfile: str or list
-            basis .nwchem file
+            basis .nwchem file, list or "file1.nwchem,file2.nwchem"
         g: str or geom obj, or [str,str] or [obj,obj]
             geometry or geometry file which overrides self.geom. Compulsory only for dual basis. 
             For dual basis: "geomA.xyz, geomB.xyz",  ["geomA.xyz"," geomB.xyz"], or [geomA, geomB]
@@ -138,6 +138,8 @@ class cubefile:
         self.comment
             user-chosen, default is corresponding density matrix
         """
+        basfile = list(basfile) if type(basfile)==tuple else basfile  # no tuples because immutable
+        g = list(g) if type(g)==tuple else g  # no tuples because immutable
         from pyscf import gto
         from pyscf.dft.numint import eval_ao, eval_rho
         import dmtools.dmtools as dmt
@@ -153,7 +155,7 @@ class cubefile:
                 print("basfile not specified, using {} as a single basis".format(basfile))
             else: 
                 basfile = input("Too many *.nwchem. For single basis, type the one to use. For dual basis, type '[basisA.nwchem],[basisB.nwchem]'\n")
-        basfile = [i.strip() for i in basfile.split(",")] if len(basfile.split(","))!=1 else basfile  # turn string to list if dual basis
+        basfile = [i.strip() for i in basfile.split(",")] if "," in basfile else basfile  # turn string to list if dual basis
         if type(basfile)==str:  # then it is not dual basis
             if g != "":
                 if type(g) == str:
@@ -175,7 +177,8 @@ class cubefile:
                 try:
                     g[n] = geom.from_xyz(g[n], identifier=n)
                 except:
-                    pass
+                    g[n].change_coord_unit("angstrom")
+                    g[n].change_identifier(n)
             self.geom = g[0] + g[1]
             ###create ibasis
             for n,i in enumerate(basfile):
@@ -568,7 +571,99 @@ def read_cubefile(fname, empty_values = False):
         cubearray = np.zeros(list(Np_vect))
     return cubefile(g,Np_vect,Vect_M,cubearray,origin=o,comment=cmmnt)
 
-def get_emptyval_cube(g = "", Np_vect = np.array([]), Vect_M = np.array([]),  o = np.array([]), comment = "Empty function values\nOnly grid\n"):
+def box_for_molecule(g="", margin=2.0):
+    """
+    Parameters
+    ----------
+    g: str or geom
+        geometry (object of filename)
+    margin: float or in
+        the margin from the extreme nuclei
+        
+    Returns
+    -------
+    array(3,2)
+        [[i.min,i.max] for i in x,y,z]
+    """
+    if g == "":
+        g = input("g must be either geom object or .xyz filename. Type the filename, please\n")
+    if type(g) == str:
+        g = geom.from_xyz(g)
+    return np.array([g.coords.min(axis=0)-margin,g.coords.max(axis=0)+margin]).T
+
+def grid_from_box(box, dist = 0.2, fix = "box"):
+    """
+    Parameters
+    ----------
+    box: array(3,2)
+        [[i.min, i.max] for i in x,y,z] 
+    dist: int or float
+        distance between points
+    fix: str
+        "box" and some others keep box unchanged and slightly reduce the distance
+        "dist" and some others keep the distance unchanged and slightly increase the box size
+    
+    Returns
+    -------
+    tuple(Np_vect, Vect_M, o)
+        Vector of number of points, Vector size matrix, origin
+    """
+    box_size = box.ptp(axis=1)
+    Np_vect = np.divide(box_size,dist)+1
+    from math import ceil
+    Np_vect = np.array([ceil(i) for i in Np_vect])
+    o = box[:,0]
+    if fix in ["box","extremes","margins"]:  # box is kept but the voxel is reduced slightly
+        Vect_M = np.diag(np.divide(box_size,Np_vect))
+        print("Your voxel now has size {},{},{}".format(np.divide(box_size,Np_vect)))
+    if fix in ["dist","distance","voxel","vect","vector","maxdist","max_dist"]:
+        Vect_M = np.diag(3*[dist])
+        box[:,1] = box[:,0] + dist*Np_vect
+        print("Your box has been changed to: ({},{}),({},{}),({},{})".format*box.reshape(-1))
+    return (Np_vect, Vect_M, o)
+
+def box_with_emptyval(g = "", margin = 2.0, dist = 0.2, fix  = "box", comment = "Empty function values\nOnly grid\n"):
+    """
+    Parameters
+    ----------
+    g: str or geom
+        geometry (object of filename)
+    margin: float or in
+        the margin from the extreme nuclei
+    dist: int or float
+        distance between points
+    fix: str
+        "box" and some others keep box unchanged and slightly reduce the distance
+        "dist" and some others keep the distance unchanged and slightly increase the box size    
+    comment: str
+        comment, default specifies it is empty
+        
+    Returns
+    -------
+    cubefile
+        emptyval cubefile        
+    """
+    g = list(g) if type(g)==tuple else g  # no tuples because immutable!!
+    if type(g) == str:
+        if g == "":
+            g = input("g must be either geom object or .xyz filename. Type the filename, please\n")
+        g = [i.strip() for i in g.split(",")] if len(g.split(",")) == 2 else [g]  # Now g is a either [g1, g2] or [g]
+    if type(g) == list:  # let's "convert" any filename to geom
+        for n,i in enumerate(g):
+            try:
+                g[n]=geom.from_xyz(i, identifier=n)
+            except:
+                pass
+        g = g[0] + g[1] if len(g) == 2 else g[0]
+#    elif not isinstance(g, geom): 
+    elif type(g) != geom: 
+        raise TypeError("the geometry is neither a geometry object nor a file!")
+    box = box_for_molecule(g, margin = margin)
+    Np_vect, Vect_M, o =  grid_from_box(box, dist, fix = fix)
+    return emptyval_cube_from_specs(g=g, Np_vect = Np_vect, Vect_M = Vect_M, o = o, comment = comment)
+    
+    
+def emptyval_cube_from_specs(g = "", Np_vect = np.array([]), Vect_M = np.array([]),  o = np.array([]), comment = "Empty function values\nOnly grid\n"):
     """
     Note
     ----
@@ -576,8 +671,9 @@ def get_emptyval_cube(g = "", Np_vect = np.array([]), Vect_M = np.array([]),  o 
     
     Parameters
     ----------
-    g: geom obj or str
-        geometry for the cubefile object or .xyz file to obtain it
+    g: geom obj,str, or list thereof
+        geometry for the cubefile object or .xyz file to obtain it.
+        if list, it combines the two geometries
     Np_vect: array(3,)
         number of points along x,y,z
     Vect_M: array(3,3)
@@ -586,13 +682,19 @@ def get_emptyval_cube(g = "", Np_vect = np.array([]), Vect_M = np.array([]),  o 
         origin of the grid. default is 0,0,0
     comment: str
         comment, default specifies it is empty
+        
+    Returns
+    -------
+    cubefile
+        emptyval cubefile
     """
+    g = list(g) if type(g)==tuple else g  # no tuples because immutable!!
     if Np_vect == np.array([]):
         raise gridError("You must specify Np_vect")
     if Vect_M == np.array([]):
         raise gridError("You must specify Vect_M")
     if o == np.array([]):
-        raise gridError("You must specify the origin")
+        o = np.zeros(3)
     if type(g) == str:
         if g == "":
             g = input("g must be either geom object or .xyz filename. Type the filename, please\n")
@@ -600,35 +702,69 @@ def get_emptyval_cube(g = "", Np_vect = np.array([]), Vect_M = np.array([]),  o 
     if type(g) == list:  # let's "convert" any filename to geom
         for n,i in enumerate(g):
             try:
-                g[n]=geom.from_xyz(i)
+                g[n]=geom.from_xyz(i, identifier=n)
             except:
                 pass
         g = g[0] + g[1] if len(g) == 2 else g[0]
-    elif not isinstance(g, geom): 
-        print(g)
-        print(isinstance(g, geom))
+#    elif not isinstance(g, geom): 
+    elif type(g) != geom: 
         raise TypeError("the geometry is neither a geometry object nor a file!")
     values = np.zeros(list(Np_vect))
     g.change_coord_unit("au")
     return cubefile(g, Np_vect, Vect_M, values,o, comment = comment)
     
-def get_cube_from_dm(dmfile = "", basfile = "", g = "", Np_vect = np.array([]), Vect_M = np.array([]),  o = np.array([])):
+def cube_from_dm_and_specs(dmfile = "", basfile = "", g = "", Np_vect = np.array([]), Vect_M = np.array([]),  o = np.array([])):
     """
     Parameters
     ----------
-    dmfile: str
-        density matrix file
-    basfile: str
-        basis .nwchem file
-    comment: str
-        default writes dmfile, use empty string to leave self.cube
+    dmfile: str or list
+        density matrix file, list or "file1,file2"
+    basfile: str or list
+        basis .nwchem file, list or "file1.nwchem,file2.nwchem"
+    g: str or geom obj, or [str,str] or [obj,obj]
+        geometry or geometry file which overrides self.geom. Compulsory only for dual basis. 
+        For dual basis: "geomA.xyz, geomB.xyz",  ["geomA.xyz"," geomB.xyz"], or [geomA, geomB]
+    Np_vect: array(3,)
+        number of points along x,y,z
+    Vect_M: array(3,3)
+        grid vectors. Generally diagonal
+    o: array(3,)
+        origin of the grid. default is 0,0,0
         
     Returns
     -------
     cubefile object
         cube from the density matrix
     """
-    cube = get_emptyval_cube(g = g, Np_vect = Np_vect, Vect_M = Vect_M, o = o)
+    cube = emptyval_cube_from_specs(g = g, Np_vect = Np_vect, Vect_M = Vect_M, o = o)
+    cube.get_cubevals_from_dm(g = g, dmfile = dmfile, basfile = basfile)
+    return cube
+
+def cube_from_dm_and_box(dmfile = "", basfile = "", g = "", margin = 2.0, dist = 0.2, fix = "box"):
+    """
+    Parameters
+    ----------
+    dmfile: str or list
+        density matrix file, list or "file1,file2"
+    basfile: str or list
+        basis .nwchem file, list or "file1.nwchem,file2.nwchem"
+    g: str or geom obj, or [str,str] or [obj,obj]
+        geometry or geometry file which overrides self.geom. Compulsory only for dual basis. 
+        For dual basis: "geomA.xyz, geomB.xyz",  ["geomA.xyz"," geomB.xyz"], or [geomA, geomB]
+    margin: float or in
+        the margin from the extreme nuclei
+    dist: int or float
+        distance between points
+    fix: str
+        "box" and some others keep box unchanged and slightly reduce the distance
+        "dist" and some others keep the distance unchanged and slightly increase the box size   
+        
+    Returns
+    -------
+    cubefile object
+        cube from the density matrix
+    """
+    cube = box_with_emptyval(g = g, margin = margin, dist = dist, fix  = fix)
     cube.get_cubevals_from_dm(g = g, dmfile = dmfile, basfile = basfile)
     return cube
 

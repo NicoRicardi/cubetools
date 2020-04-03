@@ -25,9 +25,10 @@ gB=geom.from_xyz(gfB)
 #cf_empty = ct.cubefile.from_grid_specs(g=[gA,gB],Np_vect=Np_vect, Vect_M=Vect_M, o=origin) #how to get an empty cubefile obj by defining the grid
 
 #cf_empty.get_cubevals_from_dm(dmfile=dmfile,basfile=basfile) #replacing the empty values with those obtained from DM
-fromdm = ct.get_cube_from_dm(dmfile=dmfile,basfile=basfile1,g=g,Np_vect=Np_vect,Vect_M=Vect_M,o=origin) # same as the two previous step but in one line
+#fromdm = ct.get_cube_from_dm(dmfile=dmfile,basfile=basfile1,g={1,2},Np_vect=Np_vect,Vect_M=Vect_M,o=origin) # same as the two previous step but in one line
 #
-#dualbas = basfile1+","+basfile2
+dualbas = [basfile1,basfile2]
 #gfs = gfA+","+gfB
-#fake_dual = ct.get_cube_from_dm(dmfile=dmfile,basfile=dualbas,g=gfs,Np_vect=Np_vect,Vect_M=Vect_M,o=origin)
+gfs = [gA,gB]
+fake_dual = ct.cube_from_dm_and_specs(dmfile=dmfile,basfile=dualbas,g=gfs,Np_vect=Np_vect,Vect_M=Vect_M,o=origin)
 
