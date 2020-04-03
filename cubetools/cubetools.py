@@ -88,7 +88,7 @@ class cubefile:
         """
         return read_cubefile(fname)
     
-    def from_grid_specs(g = None, Np_vect = None, Vect_M = None,  o = None, comment="Empty function values\nOnly grid\n"):
+    def from_grid_specs(g = "", Np_vect = None, Vect_M = None,  o = None, comment="Empty function values\nOnly grid\n"):
         """
         Note
         ----
@@ -114,7 +114,7 @@ class cubefile:
         """
         return get_emptyval_cube(g = g, Np_vect = Np_vect, Vect_M = Vect_M,  o = o, comment = comment)
     
-    def get_cubevals_from_dm(self, dmfile = "", basfile = "", comment = "Obtained from density matrix in file: \n {dmfile} \n"):
+    def get_cubevals_from_dm(self, dmfile = "", basfile = "", g = "", comment = "Obtained from density matrix in file: \n {dmfile} \n"):
         """
         Note
         ----
@@ -124,8 +124,11 @@ class cubefile:
         ----------
         dmfile: str
             density matrix file
-        basfile: str
+        basfile: str or list
             basis .nwchem file
+        g: str or geom obj, or [str,str] or [obj,obj]
+            geometry or geometry file which overrides self.geom. Compulsory only for dual basis. 
+            For dual basis: "geomA.xyz, geomB.xyz",  ["geomA.xyz"," geomB.xyz"], or [geomA, geomB]
         comment: str
             default writes dmfile, use empty string to leave self.cube
         Sets
@@ -139,7 +142,7 @@ class cubefile:
         from pyscf.dft.numint import eval_ao, eval_rho
         import dmtools.dmtools as dmt
         if dmfile == "":
-            raise FileNotFoundError("You must specify the density matrix file. Can have header or not, can be alpha and beta or not") #TODO check if it reads a single DM as 2*a or a.
+            dmfile = input("You must specify the density matrix file. Can have header or not, can be alpha and beta or not. Please type the filename\n") #TODO check if it reads a single DM as 2*a or a.
         if basfile == "":
             import glob as gl
             files = gl.glob("*.nwchem")
@@ -147,20 +150,46 @@ class cubefile:
                 raise FileNotFoundError("no *.nwchem file! basis must be in .nwchem!")
             elif len(files) == 1:
                 basfile = files[0]
-                print("basfile not specified, using {}".format(basfile))
+                print("basfile not specified, using {} as a single basis".format(basfile))
             else: 
-                basfile = input("Too many *.nwchem. Type the one to use")
-        self.geom.change_coord_unit("Angstrom")
-        geomstring = self.geom.__str__()
-        with open(basfile, "r") as f:
-            ibasis = f.read()
+                basfile = input("Too many *.nwchem. For single basis, type the one to use. For dual basis, type '[basisA.nwchem],[basisB.nwchem]'\n")
+        basfile = [i.strip() for i in basfile.split(",")] if len(basfile.split(","))!=1 else basfile  # turn string to list if dual basis
+        if type(basfile)==str:  # then it is not dual basis
+            if g != "":
+                if type(g) == str:
+                    g = geom.from_xyz(g)
+            self.geom = g
+            self.geom.change_coord_unit("Angstrom")
+            
+            with open(basfile, "r") as f:
+                ibasis = f.read()
+        if type(basfile) == list:  # then it is dual basis
+            if g == "":
+                g = input("From basfile I deduce dualbasis, Please type 'geomfileA,geomfileB'\n")
+            if type(g) == str:
+                if len(g.split(",")) == 2:
+                    g = [i.strip() for i in g.split(",")]
+                else:
+                    raise TypeError("Cannot obtain two geometries from {}.\n From basfile I deduce dualbasis, so you must give geomA and geomB".format(g))
+            for n in range(2):
+                try:
+                    g[n] = geom.from_xyz(g[n], identifier=n)
+                except:
+                    pass
+            self.geom = g[0] + g[1]
+            ###create ibasis
+            for n,i in enumerate(basfile):
+                with open(i,"r") as f:
+                    basfile[n] = f.read()
+            ibasis = {i+str(n): basfile[n] for n in range(2) for i in set(g[n].atoms)}
+        geomstring = self.geom.__str__()    
         mol = gto.M(atom = geomstring, basis = ibasis)
         dm_obj = dmt.DM.from_dmfile(dmfile)
         dm = dm_obj.get_dm_full()
         self.geom.change_coord_unit("au")
         points = self.get_coordlist()
         ao_mol = eval_ao(mol, points, deriv=0)
-        cubevals= eval_rho(mol, ao_mol, dm, xctype='LDA')
+        cubevals = eval_rho(mol, ao_mol, dm, xctype='LDA')
         self.values = cubevals.reshape(*self.Np_vect)
         if comment != "":
             self.comment = comment.format(dmfile=dmfile)
@@ -566,16 +595,24 @@ def get_emptyval_cube(g = "", Np_vect = np.array([]), Vect_M = np.array([]),  o 
         raise gridError("You must specify the origin")
     if type(g) == str:
         if g == "":
-            raise Error("You must specify the geometry. Either geom object of .xyz filename")
-        else:
-            g = geom.from_xyz(g)
-    elif type(g) != geom: 
+            g = input("g must be either geom object or .xyz filename. Type the filename, please\n")
+        g = [i.strip() for i in g.split(",")] if len(g.split(",")) == 2 else [g]  # Now g is a either [g1, g2] or [g]
+    if type(g) == list:  # let's "convert" any filename to geom
+        for n,i in enumerate(g):
+            try:
+                g[n]=geom.from_xyz(i)
+            except:
+                pass
+        g = g[0] + g[1] if len(g) == 2 else g[0]
+    elif not isinstance(g, geom): 
+        print(g)
+        print(isinstance(g, geom))
         raise TypeError("the geometry is neither a geometry object nor a file!")
     values = np.zeros(list(Np_vect))
     g.change_coord_unit("au")
     return cubefile(g, Np_vect, Vect_M, values,o, comment = comment)
     
-def get_cube_from_dm(dmfile = "", basfile = "", g = None, Np_vect = np.array([]), Vect_M = np.array([]),  o = np.array([])):
+def get_cube_from_dm(dmfile = "", basfile = "", g = "", Np_vect = np.array([]), Vect_M = np.array([]),  o = np.array([])):
     """
     Parameters
     ----------
@@ -592,7 +629,7 @@ def get_cube_from_dm(dmfile = "", basfile = "", g = None, Np_vect = np.array([])
         cube from the density matrix
     """
     cube = get_emptyval_cube(g = g, Np_vect = Np_vect, Vect_M = Vect_M, o = o)
-    cube.get_cubevals_from_dm(dmfile = dmfile, basfile = basfile)
+    cube.get_cubevals_from_dm(g = g, dmfile = dmfile, basfile = basfile)
     return cube
 
 def have_same_grid(cf1,cf2,orig_thresh=1e-5, printout=False):

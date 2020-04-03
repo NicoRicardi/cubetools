@@ -1,0 +1,7 @@
+README.md
+setup.py
+cubetools/cubetools.py
+cubetools.egg-info/PKG-INFO
+cubetools.egg-info/SOURCES.txt
+cubetools.egg-info/dependency_links.txt
+cubetools.egg-info/top_level.txt

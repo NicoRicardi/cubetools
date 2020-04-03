@@ -8,12 +8,12 @@ Created on Thu Mar 12 16:24:39 2020
 from pyscf import gto
 from pyscf.dft.numint import eval_ao, eval_rho
 import dmtools.dmtools as dmt
-import cubetools as ct
+import cubetools.cubetools as ct
 from geomtools.geom import geom
 import numpy as np
 
 basfile="sto-6g.1.nwchem"
-geomfile="acrolein.xyz"   
+geomfile="acro_water.xyz"   
 dmfile="frag0_HF_dens_ME.txt"
 Np_vect=np.array([75,75,75])
 Vect_M=np.array([[0.2,0,0],[0,0.2,0],[0,0,0.2]])
