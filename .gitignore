@@ -1,3 +1,5 @@
+./junk/
+./junk/*
 *.cube
 *.cub
 *.xyz
