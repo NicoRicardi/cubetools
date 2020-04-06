@@ -713,7 +713,7 @@ def emptyval_cube_from_specs(g = "", Np_vect = np.array([]), Vect_M = np.array([
     g.change_coord_unit("au")
     return cubefile(g, Np_vect, Vect_M, values,o, comment = comment)
     
-def cube_from_dm_and_specs(dmfile = "", basfile = "", g = "", Np_vect = np.array([]), Vect_M = np.array([]),  o = np.array([])):
+def cube_from_dm_and_specs(dmfile = "", basfile = "", g = "", Np_vect = np.array([]), Vect_M = np.array([]),  o = np.array([]), comment = ""):
     """
     Parameters
     ----------
@@ -738,9 +738,11 @@ def cube_from_dm_and_specs(dmfile = "", basfile = "", g = "", Np_vect = np.array
     """
     cube = emptyval_cube_from_specs(g = g, Np_vect = Np_vect, Vect_M = Vect_M, o = o)
     cube.get_cubevals_from_dm(g = g, dmfile = dmfile, basfile = basfile)
+    if comment:
+        cube.comment = comment
     return cube
 
-def cube_from_dm_and_box(dmfile = "", basfile = "", g = "", margin = 2.0, dist = 0.2, fix = "box"):
+def cube_from_dm_and_box(dmfile = "", basfile = "", g = "", margin = 2.0, dist = 0.2, fix = "box", comment = ""):
     """
     Parameters
     ----------
@@ -766,6 +768,8 @@ def cube_from_dm_and_box(dmfile = "", basfile = "", g = "", margin = 2.0, dist =
     """
     cube = box_with_emptyval(g = g, margin = margin, dist = dist, fix  = fix)
     cube.get_cubevals_from_dm(g = g, dmfile = dmfile, basfile = basfile)
+    if comment:
+        cube.comment = comment
     return cube
 
 def have_same_grid(cf1,cf2,orig_thresh=1e-5, printout=False):
