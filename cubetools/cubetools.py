@@ -194,8 +194,9 @@ class cubefile:
         ao_mol = eval_ao(mol, points, deriv=0)
         cubevals = eval_rho(mol, ao_mol, dm, xctype='LDA')
         self.values = cubevals.reshape(*self.Np_vect)
-        if comment != "":
-            self.comment = comment.format(dmfile=dmfile)
+        if "{dmfile}" in comment:
+            comment = comment.format(dmfile=dmfile)
+        self.comment = comment
         
         
     def write(self, fname, digits=5):
@@ -241,10 +242,10 @@ class cubefile:
         Allows easy printing
         """
         geomstring = self.geom.__str__()
-        Npoints = "Npoints: x = {}, y = {}, z = {}".format(*tuple([self.Np_vect[i] for i in range(3)]))
+        Npoints = "Npoints: x = {}, y = {}, z = {}".format(*[self.Np_vect[i] for i in range(3)])
         isdiag = (np.diag(np.diag(self.Vect_M)) == self.Vect_M).all()
-        vect = "v_x = {}, vy = {}, vz = {}".format(*tuple([np.diag(self.Vect_M)[i] for i in range(3)])) if isdiag else self.Vect_M
-        orig = "origin: {}, {}, {}\n".format(*tuple([self.origin[i] for i in range(3)]))
+        vect = "v_x = {}, vy = {}, vz = {}".format(*[np.diag(self.Vect_M)[i] for i in range(3)]) if isdiag else self.Vect_M
+        orig = "origin: {}, {}, {}\n".format(*[self.origin[i] for i in range(3)])
         return "\n".join([geomstring,Npoints,vect,orig,self.comment])
     
     def __repr__(self, spacing=4, decs=6):
@@ -254,10 +255,10 @@ class cubefile:
         Allows easy calling
         """
         geomstring = self.geom.__str__()
-        Npoints = "Npoints: x = {}, y = {}, z = {}".format(*tuple([self.Np_vect[i] for i in range(3)]))
+        Npoints = "Npoints: x = {}, y = {}, z = {}".format(*[self.Np_vect[i] for i in range(3)])
         isdiag = (np.diag(np.diag(self.Vect_M)) == self.Vect_M).all()
-        vect = "v_x = {}, vy = {}, vz = {}".format(*tuple([np.diag(self.Vect_M)[i] for i in range(3)])) if isdiag else self.Vect_M
-        orig = "origin: {}, {}, {}\n".format(*tuple([self.origin[i] for i in range(3)]))
+        vect = "v_x = {}, vy = {}, vz = {}".format(*[np.diag(self.Vect_M)[i] for i in range(3)]) if isdiag else self.Vect_M
+        orig = "origin: {}, {}, {}\n".format(*[self.origin[i] for i in range(3)])
         return "\n".join([geomstring,Npoints,vect,orig,self.comment])
     
     def __add__(self, other):
@@ -589,7 +590,9 @@ def box_for_molecule(g="", margin=2.0):
         g = input("g must be either geom object or .xyz filename. Type the filename, please\n")
     if type(g) == str:
         g = geom.from_xyz(g)
-    return np.array([g.coords.min(axis=0)-margin,g.coords.max(axis=0)+margin]).T
+    c = g.copy()
+    c.change_coord_unit("au")
+    return np.array([c.coords.min(axis=0)-margin,c.coords.max(axis=0)+margin]).T
 
 def grid_from_box(box, dist = 0.2, fix = "box"):
     """
@@ -615,11 +618,11 @@ def grid_from_box(box, dist = 0.2, fix = "box"):
     o = box[:,0]
     if fix in ["box","extremes","margins"]:  # box is kept but the voxel is reduced slightly
         Vect_M = np.diag(np.divide(box_size,Np_vect))
-        print("Your voxel now has size {},{},{}".format(np.divide(box_size,Np_vect)))
+        print("Your voxel now has size {},{},{}".format(*np.divide(box_size,Np_vect)))
     if fix in ["dist","distance","voxel","vect","vector","maxdist","max_dist"]:
         Vect_M = np.diag(3*[dist])
         box[:,1] = box[:,0] + dist*Np_vect
-        print("Your box has been changed to: ({},{}),({},{}),({},{})".format*box.reshape(-1))
+        print("Your box has been changed to: ({},{}),({},{}),({},{})".format(*box.reshape(-1)))
     return (Np_vect, Vect_M, o)
 
 def box_with_emptyval(g = "", margin = 2.0, dist = 0.2, fix  = "box", comment = "Empty function values\nOnly grid\n"):
